@@ -13,12 +13,12 @@ COLOR_NODE = (0,0,0)
 COLOR_OBS = (255,0,0)
 
 
-MAP_WIDTH = 4000
-MAP_HEIGHT = 4000
+MAP_WIDTH = 5000
+MAP_HEIGHT = 5000
 START = [   
             
             
-            (   int(MAP_WIDTH/2   )   ,3*int(MAP_HEIGHT/4  )   )
+            (   int(MAP_WIDTH-2   )   ,int(MAP_HEIGHT-1  )   )
 
             ]  
                 
@@ -26,11 +26,15 @@ START = [
 
 
 OBS =   [
-            (   (1500,1500),(1500,2500)     ),
-            (   (1500,1500),(2500,1500)     ),
-            (   (1500,2500),(2500,2500)     ),
-            (   (2500,1500),(2500,2500)     )
+            (   (int(MAP_WIDTH/2),int(MAP_HEIGHT/3)),(int(MAP_HEIGHT*7/24),int(MAP_HEIGHT*5/6))     ),
+            (   (int(MAP_HEIGHT*7/24),int(MAP_HEIGHT*5/6)),(int(MAP_HEIGHT*17/24),int(MAP_HEIGHT*5/6))     ),
+            (   (int(MAP_HEIGHT*17/24),int(MAP_HEIGHT*5/6)),(int(MAP_WIDTH/2),int(MAP_HEIGHT/3))     ),
         ]
+
+CIRCS = [
+            (int(MAP_WIDTH/2),int(MAP_HEIGHT/3), 950)
+        ]
+CIRC_RES = 100
 
 
 
@@ -38,12 +42,12 @@ MAX_NODES = 1000
 MOD = MAX_NODES / 200
 
 
-LINE_THICKNESS = int( math.ceil((MAP_WIDTH + MAP_HEIGHT)/500)   )
+LINE_THICKNESS = 9#int( math.ceil((MAP_WIDTH + MAP_HEIGHT)/500)   )
 
 NODE_RADIUS =  LINE_THICKNESS +1
 
 EPSILON= int( (MAP_WIDTH + MAP_HEIGHT)/2     * .15)
-
+MU =int( (MAP_WIDTH + MAP_HEIGHT)/2     * .01)
 
 def Draw(im, k, OBS, redraw):
     '''
@@ -59,14 +63,16 @@ def Draw(im, k, OBS, redraw):
         cv2.line(im, segment[0], segment[1], COLOR_OBS, thickness=LINE_THICKNESS+2)
     for node in redraw:
         cv2.line(im, node, redraw[node], COLOR_BG, thickness=LINE_THICKNESS)
+    
     for node in k:  #draws all the nodes (not just new ones in case there is an update feature later)
         
-        cv2.circle(im, node, NODE_RADIUS, COLOR_NODE)
+        #cv2.circle(im, node, NODE_RADIUS, COLOR_NODE)
         cv2.line(im, node, k[node], COLOR_EDGE, thickness=LINE_THICKNESS)
     
     
     cv2.imshow(TITLE, im)
     cv2.waitKey(10)
+
 
     
 
@@ -80,6 +86,8 @@ def EndIm(im, k):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     
+
+
 
 def distance(a,b):
     '''
@@ -96,6 +104,8 @@ def distance(a,b):
 
 
 
+
+
 def distanceSortLambda(origin):
     '''
     returns a lambda to sort a function by distance from a point
@@ -105,6 +115,9 @@ def distanceSortLambda(origin):
     :return lambda: function that finds distance between origin and x
     '''
     return lambda x: distance(origin, x)
+
+
+
 
 def rewire(newNode, k, costs, im, OBS):
 
@@ -131,7 +144,10 @@ def rewire(newNode, k, costs, im, OBS):
         
             k[node] = newNode
             costs[node] = newCost
-    return redraw        
+    return redraw
+
+
+
 
 def ccw(A,B,C):
     '''
@@ -149,6 +165,9 @@ def ccw(A,B,C):
 
     return First > Second
 
+
+
+
 def intersect(A,B,C,D):
     '''
     detects if two line segments intersect
@@ -158,6 +177,8 @@ def intersect(A,B,C,D):
     :return: boolean if the lines intersect
     '''
     return ccw(A,C,D) != ccw(B,C,D) and ccw(A,B,C) != ccw(A,B,D)
+
+
     
 def collides(node, newNode, Obs):
     '''
@@ -174,11 +195,38 @@ def collides(node, newNode, Obs):
             collides = True
             break
     return collides
-    
-    
+
+
+
+def makeCircle(midpoint, rad, res):
+    '''
+    Makes a circle into multiple line segments
+
+    :param midpoint: center of the circle
+    :param rad: radius of the circle
+    :param res: number of segments to simulate the circle
+
+    :return circle: dict of points outlining the circle
+    '''
+    angleInc = math.pi * 2 / res
+
+    circle = []
+
+    prev = (midpoint[0] + rad, midpoint[1])
+    for i in range(1,res+1):
+        ang = i * angleInc
+        x = int(rad * math.cos(ang)) + midpoint[0]
+        y = int(rad * math.sin(ang)) + midpoint[1]
+        circle.append((prev, (x,y)))
+        prev = (x,y)
+        
+    return circle
+
+
+
 
 def main():
-        #initializing all my stuff
+    #initializing all my stuff
 
 
     cv2.namedWindow(TITLE, flags=cv2.WINDOW_NORMAL)
@@ -186,6 +234,15 @@ def main():
     
     Map = np.zeros((MAP_HEIGHT, MAP_WIDTH, 3))
     Map[:,:] = COLOR_BG
+
+    for circle in CIRCS:
+        center = (circle[0], circle[1])
+        rad = circle[2]
+        OBS.extend( makeCircle(center, rad, CIRC_RES))
+        
+        cv2.circle(Map, center, rad, COLOR_OBS)
+    
+    
 
 
     
@@ -198,7 +255,7 @@ def main():
         costs[point]    = 0
 
     print("Initialized")
-
+    cv2.waitKey(0)
 
     
 
@@ -208,11 +265,7 @@ def main():
         newNodeX = random.randint(1, MAP_WIDTH) - 1
         newNode = (newNodeX, newNodeY)
 
-        '''if Map[newNodeY, newNodeX, 0] != COLOR_BG[0] and \
-           Map[newNodeY, newNodeX, 1] != COLOR_BG[1] and \
-           Map[newNodeY, newNodeX, 2] != COLOR_BG[2] :
-            continue
-        '''
+       
         #sort nodes by distance to newNode
         nodes = sorted( k, key=distanceSortLambda(newNode)   )
         parent = nodes[0]
@@ -231,28 +284,49 @@ def main():
         #EpsCheck = 2*EPSILON / len(k)        #useful for an odd pattern
 
         #check to see if new node is just too far
-        if distance(newNode, parent) > EPSILON:
-            continue
+        newDist = distance(newNode, parent)
+##        print(newNode)
 
-        #checks to see if line collides
+        #reduces distance to epsilon if over
+        if newDist > EPSILON:
+            continue
+            '''
+            #curr distance
+            xDist = -(parent[0] - newNode[0])
+            yDist = -(parent[1] - newNode[1])
+
+            #mult by epsilon
+            xDist *= EPSILON
+            yDist *= EPSILON
+
+            newNodeX = int(xDist/newDist) + parent[0]
+            newNodeY = int(yDist/newDist) + parent[1]
+
+            #divide by curr distance effectively D*Epsilon/D, so EPSILON 
+            newNode = (newNodeX, newNodeY)
+            '''
+
         
+        #collides with obstacle
         if collides(parent, newNode, OBS):
             continue
-
-
-        
+        #out of bounds
+        if(newNode[0] > MAP_WIDTH  or newNode[0] < 0):
+            continue
+        if(newNode[1] > MAP_HEIGHT or newNode[1] < 0):
+            continue
+    
         #add newNode into lists
         costs[newNode] = minCost
         k[newNode] = parent
-
         redraw  =  {**redraw, **rewire(newNode, k, costs, Map, OBS)   }
-
         
         #update image
         #Draw(Map, k, OBS, redraw)
         if(len(k) % MOD ==0):
             print("" + str(len(k)) + " / " + str(MAX_NODES) + "  (" + str(100.0*len(k)/MAX_NODES) + "%)")
             Draw(Map, k, OBS, redraw)
+            redraw = {}
         #if(len(k) % 50 ==0):
          #   cv2.imshow(TITLE, Map)
           #  cv2.waitKey(1)
