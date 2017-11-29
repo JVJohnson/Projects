@@ -15,8 +15,8 @@ using namespace std;
 using namespace cv;
 
 //width & height of map
-const int mapW = 2000;
-const int mapH = 2000;
+const int mapW = 1000;
+const int mapH = 1000;
 
 //initial node
 const int startX = 500;
@@ -25,6 +25,13 @@ const double startTh = 0;
 
 const double stDeltX = 0;
 
+
+
+const double carLength = 3;
+const double maxTheta = atan(1)/8;
+const double maxSpeed = 5;
+
+const int DEF = 100;
 
 
 //max number of nodes
@@ -46,7 +53,7 @@ struct NodeLeaf
 		Point self;
 		double angle;
 
-		Point speed;
+		double speed;
 		double deltaAng;
 
 
@@ -68,19 +75,45 @@ void draw( NodeLeaf *nodes, Mat img)
 		// cout << "	node parent: ";
 		// cout << (nodes[i].parent) << endl;
 		
-		line(img, nodes[i].self, nodes[i].parent->self, CV_RGB(0,0,0), lineThickness );
+		//line(img, nodes[i].self, nodes[i].parent->self, CV_RGB(0,0,0), lineThickness );
 		// cout << "	drew line" << endl;
 	}
 
 
-	namedWindow("CaR-RT", 1);
 	imshow("CaR-RT", img);
 	waitKey(4);
 };
 
 
 
+NodeLeaf drive(NodeLeaf init, Mat img)
+{
+	double us = init.speed;
 
+	double x = init.self.x;
+	double y = init.self.y;
+	double th = init.angle;
+	
+
+	for(int step = 1; step < 20; step++)
+	{
+		x = x + us*cos(th);
+		y = y + us*sin(th);
+		th = th + us/carLength * tan(init.deltaAng);
+		circle(img, Point(x,y), 1, CV_RGB(0,0,255), 1);
+		
+		imshow("CaR-RT", img);
+		waitKey(4);
+		// cout << "drew: " << x << ", " << y << endl;
+
+	};
+	NodeLeaf end;
+	end.self.x = x;
+	end.self.y = y;
+	end.angle  = th;
+	return end;
+
+}
 
 
 
@@ -109,6 +142,12 @@ int main()
 
 	NodeLeaf newN;
 
+	namedWindow("CaR-RT", CV_WINDOW_NORMAL);
+
+
+
+
+
 	//iterates through node-making until desired number of nodes is reached
 	while(currNodeNum < nodeNum)
 	{
@@ -121,10 +160,20 @@ int main()
 		
 		int randIndex = rand() % currNodeNum;
 
-		NodeLeaf curr = nodes[randIndex];
+		NodeLeaf nextNode(nodes[randIndex]); 
 
+		//gets within range of (-DEF,DEF), then multilies by max theta to get (-maxTheta , maxTheta)
+		double dTheta = (    ( rand()%(2*DEF) )- DEF   )*1.0/DEF * maxTheta;
 				
+		//uses same  thing as above to get range (-maxSpeed, maxSpeed)
+		double dSpeed = (    ( rand()%(2*DEF) )- DEF   )*1.0/DEF * maxSpeed;
+		cout << "rand Th,S: " << dTheta << ", " << dSpeed << endl;
 
+		nextNode.speed = dSpeed;
+		nextNode.deltaAng = dTheta;
+
+
+		nextNode = drive(nextNode, img);
 
 
 
@@ -151,7 +200,7 @@ int main()
 				minDist = dist;
 				newN.parent = point;	//new parent is closest node
 			}
-		}*/
+		}
 		// cout << "Node:	" << newN.self << endl;
 		// cout << "	Node Parent:	" << newN.parent->self << endl;
 		// cout << "node dist:	" << minDist << endl;
@@ -165,13 +214,13 @@ int main()
 			// cout << "threw out" << endl;
 			continue;
 			//atan2(newN.self.y-newN.parent->y )
-		}
+		}*/
 
 		// cout << "Created node: " << newN.self; 
 		// cout << "	with parent: " << newN.parent->self << endl;
 		
 		//add new node into the array
-		nodes[currNodeNum] = newN;
+		nodes[currNodeNum] = nextNode;
 		currNodeNum++;
 
 	}
