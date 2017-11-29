@@ -258,7 +258,7 @@ def main():
     cv2.waitKey(0)
 
     
-
+    
                         #find set number of nodes
     while len(k) < MAX_NODES:
         newNodeY = random.randint(1, MAP_HEIGHT) -1
