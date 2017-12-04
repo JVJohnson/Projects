@@ -4,7 +4,7 @@
 #include <math.h>
 #include <iomanip>
 #include <fstream>
-
+#include <vector>
 
 //Opencv2 for displaying stuff cause i like it
 #include "opencv2/core.hpp"
@@ -48,12 +48,63 @@ int nodeNum;
 int nodeRad;
 int lineThickness;
 int lineLen;
+int obsThickness;
 
 
 //Epsilon is a fraction of average of w and h
 double EPSILON =  ( (mapW + mapH)/2 ) /7 ;
 
 int currNodeNum = 0;
+
+
+
+class Line
+{
+public:
+	//creates the line with a beginning and end point
+	Line(Point m, Point n)
+	{
+		if(m.x-n.x == 0)		//ignore vertical lines becaus etheir not functions, I'll try to deal with it later
+			a=Point(m.x+1, m.y);
+		else
+			a=m;
+
+		
+		b = n;
+
+
+	}
+	//literally the equation
+	int equation(int x)
+	{
+		if(a.y-b.y == 0)	//no change in slope
+		{
+			return a.y;
+		}
+		else
+		{
+			return ((a.y-b.y)/(a.x-b.x))*(x-a.x ) + a.y;
+		}
+	}
+	Point getA() const
+	{
+		return a;
+	}
+	Point getB() const
+	{
+		return b;
+	}
+private:
+	Point a;
+	Point b;
+
+};
+
+vector<Line> *obstacles;
+int numLines;
+
+
+
 void readINI(string fileName)
 {
 	ifstream File(fileName, ios::in);
@@ -106,6 +157,8 @@ void readINI(string fileName)
 	File>>dump;
 	File>>lineLen;
 	File>>dump;
+	File>>obsThickness;
+	File>>dump;
 
 
 	//Epsilon is a fraction of average of w and h
@@ -114,6 +167,25 @@ void readINI(string fileName)
 	File>>EpsilonDenom;
 	EPSILON =  ( (mapW + mapH)/2 ) /EpsilonDenom ;
 	File>>dump;
+
+
+	//reading in my lines
+	File>>dump;
+	File>>dump;
+	int x1, y1, x2, y2;
+	obstacles = new vector<Line>;
+	numLines = 0;
+	while(dump=="n")
+	{
+		File>>x1;
+		File>>y1;
+		File>>x2;
+		File>>y2;
+
+		obstacles->push_back(   Line( Point(x1,y1), Point(x2,y2) )   );
+		numLines++;
+		File>>dump;
+	}
 
 	return;
 }
@@ -137,6 +209,11 @@ void draw( NodeLeaf *nodes, Mat img)
 
 		circle(img, nodes[i].self, nodeRad, CV_RGB(0,0,0), nodeRad);
 		arrowedLine(   img, nodes[i].self,    Point( nodes[i].self.x + lineLen*cos(nodes[i].angle) , nodes[i].self.y + lineLen*sin(nodes[i].angle) )   , CV_RGB(0,0,0), lineThickness, 8 );
+	}
+	for(int i = 0; i < numLines; i++)
+	{
+		line(  img, (*obstacles)[i].getA(), (*obstacles)[i].getB(), CV_RGB(0,0,0), obsThickness );
+
 	}
 
 
@@ -375,7 +452,7 @@ int main()
 
 			next = LSL(nodes[i], newNode);
 
-			if(next.dist /*+ nodes[i].cost*/ < final.dist /*+ chosen.cost*/)
+			if(next.dist + nodes[i].cost < final.dist + chosen.cost)
 			{
 				final = next;
 				chosen = nodes[i];
@@ -383,7 +460,7 @@ int main()
 
 			next = RSR(nodes[i], newNode);
 
-			if(next.dist /*+ nodes[i].cost*/ < final.dist /*+ chosen.cost*/)
+			if(next.dist + nodes[i].cost < final.dist + chosen.cost)
 			{
 				final = next;
 				chosen = nodes[i];
@@ -458,5 +535,7 @@ int main()
 	imshow("CaR-RT", img);
 	waitKey(0);
 
+
+	delete obstacles;
 	return 0;
 }
