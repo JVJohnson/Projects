@@ -17,7 +17,7 @@ using namespace cv;
 
 //mathematical constants
 const double PI = atan(1)*4;
-
+const double MAX = numeric_limits<double>::max();
 
 //width & height of map
 int mapW; 
@@ -29,13 +29,17 @@ int startY;
 double startTh;
 
 
+//final node
+int endX = 700;
+int endY = 500;
+double endTh = PI; 
 
 
 
 //basic car restraints
 double carLength;
 double maxTheta;
-double turnRad = carLength/tan(maxTheta);
+double turnRad;
 
 
 
@@ -43,6 +47,9 @@ double turnRad = carLength/tan(maxTheta);
 
 //max number of nodes
 int nodeNum;
+//rate to check final point
+int RATE = 5;
+
 
 //Drawing Constants
 int nodeRad;
@@ -55,6 +62,7 @@ int obsThickness;
 double EPSILON =  ( (mapW + mapH)/2 ) /7 ;
 
 int currNodeNum = 0;
+int nodeTry = 0;
 
 
 
@@ -241,6 +249,42 @@ struct DubinsResult
 	double FinalLeave;
 };
 
+
+//checks if three points are counter clock-wise
+bool ccw(Point a, Point b, Point c)
+{
+
+	double f = (c.y - a.y) * (b.x - a.x);
+	double s = (b.y - a.y) * (c.x - a.x);
+	// cout << "	" << (f > s) << endl;
+	return (f > s);
+}
+
+//checks if two lines intersect using the ccw algotihm
+bool intersect(Line one, Line two)
+{
+	return(    ccw(one.getA(),two.getA(),two.getB()) != ccw(one.getB(), two.getA(),two.getB())    )&&(    ccw(one.getA(),one.getB(),two.getA()) != ccw(one.getA(),one.getB(),two.getB())    );
+
+}
+//checks if a certain line collides wih the obstacles
+bool collidesLine(Line dude)
+{
+	// cout << "  " << "on:" << dude.getA() << "--" << dude.getB() << endl;
+	bool collides = false;
+	for(size_t i = 0; i < numLines; i++)
+	{
+		if( intersect(dude, (*obstacles)[i]))
+		{
+			collides = true;
+			break;;
+		}
+	}
+	return collides;
+
+
+
+}
+
 DubinsResult RSR(NodeLeaf PoseOrigin, NodeLeaf PoseFinal)
 {
 	//creates the center of the turning radius circle on the right side of the origin pose
@@ -284,13 +328,25 @@ DubinsResult RSR(NodeLeaf PoseOrigin, NodeLeaf PoseFinal)
 	result.OriginLeave 	= OriginLeave;
 	result.FinalLeave 	= FinalLeave;
 
+	double OxLeft = -turnRad*cos(OriginLeave + PI/2) + Origin.x;
+	double OyLeft = -turnRad*sin(OriginLeave + PI/2) + Origin.y;
+	double FxLeft = -turnRad*cos(FinalLeave  + PI/2)  +Final.x ;
+	double FyLeft = -turnRad*sin(FinalLeave  + PI/2)  +Final.y ;
+
+
+	Line straightLine(Point(OxLeft, OyLeft), Point(FxLeft, FyLeft));
+	if(collidesLine(straightLine))
+	{
+		result.dist = MAX;//just a max cause i'm too lazy to really write the max value thing in here
+	}
+
 	return result;
 	
 
 }
 
 //draws an RSR dubin's curve
-void drawRSR(DubinsResult r, NodeLeaf PoseOrigin, NodeLeaf PoseFinal,  Mat img)
+void drawRSR(DubinsResult r, NodeLeaf PoseOrigin, NodeLeaf PoseFinal,  Mat img, bool final)
 {
 	ellipse(img, Point(r.Origin.x, r.Origin.y), Size(turnRad, turnRad), (PoseOrigin.angle-PI/2) *180/PI, (r.alph) *180/PI, 0, Scalar(255,0,0), lineThickness, 8 );
 	ellipse(img, Point(r.Final.x, r.Final.y), Size(turnRad, turnRad), (PoseFinal.angle-PI/2)*180/PI, 0, (r.gamm)*180/PI, Scalar(255,0,0), lineThickness, 8 );
@@ -354,17 +410,38 @@ DubinsResult LSL(NodeLeaf PoseOrigin, NodeLeaf PoseFinal)
 	result.OriginLeave 	= OriginLeave;
 	result.FinalLeave 	= FinalLeave;
 
+	double OxLeft = -turnRad*cos(OriginLeave - PI/2) + Origin.x;
+	double OyLeft = -turnRad*sin(OriginLeave - PI/2) + Origin.y;
+	double FxLeft = -turnRad*cos(FinalLeave  - PI/2)  +Final.x ;
+	double FyLeft = -turnRad*sin(FinalLeave  - PI/2)  +Final.y ;
+
+
+	Line straightLine(Point(OxLeft, OyLeft), Point(FxLeft, FyLeft));
+	if(collidesLine(straightLine))
+	{
+		result.dist = MAX;//just a max cause i'm too lazy to really write the max value thing in here
+	}
+
+	return result;
 	return result;
 	
 
 }
 
 //draws an LSL dubin's curve
-void drawLSL(DubinsResult r, NodeLeaf PoseOrigin, NodeLeaf PoseFinal,  Mat img)
+void drawLSL(DubinsResult r, NodeLeaf PoseOrigin, NodeLeaf PoseFinal,  Mat img, bool final)
 {
-	ellipse(img, Point(r.Origin.x, r.Origin.y), Size(turnRad, turnRad), (PoseOrigin.angle+PI/2) *180/PI,0, (r.alph) *180/PI,  Scalar(255,0,0), lineThickness, 8 );
-	ellipse(img, Point(r.Final.x, r.Final.y), Size(turnRad, turnRad), (PoseFinal.angle+PI/2)*180/PI, (r.gamm)*180/PI,0, Scalar(255,0,0), lineThickness, 8 );
+	if(!final)
+	{
+		ellipse(img, Point(r.Origin.x, r.Origin.y), Size(turnRad, turnRad), (PoseOrigin.angle+PI/2) *180/PI,0, (r.alph) *180/PI,  Scalar(255,0,0), lineThickness, 8 );
+		ellipse(img, Point(r.Final.x, r.Final.y), Size(turnRad, turnRad), (PoseFinal.angle+PI/2)*180/PI, (r.gamm)*180/PI,0, Scalar(255,0,0), lineThickness, 8 );
+	}
+	else
+	{
+		ellipse(img, Point(r.Origin.x, r.Origin.y), Size(turnRad, turnRad), (PoseOrigin.angle+PI/2) *180/PI,0, (r.alph) *180/PI,  Scalar(255,0,255), lineThickness, 8 );
+		ellipse(img, Point(r.Final.x, r.Final.y), Size(turnRad, turnRad), (PoseFinal.angle+PI/2)*180/PI, (r.gamm)*180/PI,0, Scalar(255,0,255), lineThickness, 8 );
 
+	}
 	//circle(img, Point(Origin.x,Origin.y), turnRad , CV_RGB(0,0,255), lineThickness);
 	//circle(img, Point(Final.x,Final.y),turnRad , CV_RGB(0,0,255), lineThickness);
 
@@ -374,21 +451,27 @@ void drawLSL(DubinsResult r, NodeLeaf PoseOrigin, NodeLeaf PoseFinal,  Mat img)
 	double FyLeft = -turnRad*sin(r.FinalLeave  - PI/2)  + r.Final.y ;
 
 	// cout << Point(OxLeft, OyLeft) << " to " << Point(FxLeft, FyLeft) << endl;
-	line(  img, Point(OxLeft, OyLeft), Point(FxLeft, FyLeft), CV_RGB(0,0,255), lineThickness );
-
+	if(!final)
+	{
+		line(  img, Point(OxLeft, OyLeft), Point(FxLeft, FyLeft), CV_RGB(0,0,255), lineThickness );
+	}
+	else
+	{
+		line(  img, Point(OxLeft, OyLeft), Point(FxLeft, FyLeft), CV_RGB(255,0,255), lineThickness );
+	}
 
 }
 
 //calls a certain draw function based on the id of the dubins result
-void drawDubins(DubinsResult r, NodeLeaf PoseOrigin, NodeLeaf PoseFinal, Mat img)
+void drawDubins(DubinsResult r, NodeLeaf PoseOrigin, NodeLeaf PoseFinal, Mat img, bool final)
 {
 	switch(r.id){
 		case 0:
-			drawRSR(r, PoseOrigin, PoseFinal, img);
+			drawRSR(r, PoseOrigin, PoseFinal, img, final);
 			break;
 
 		case 1:
-			drawLSL(r,PoseOrigin, PoseFinal, img);
+			drawLSL(r,PoseOrigin, PoseFinal, img, final);
 			break;
 
 	}
@@ -441,11 +524,18 @@ int main()
 		newNode.self.y = rand() % (mapH - 2*(int)(turnRad*2)) + 2*turnRad;
 		//returns random angle 
 		newNode.angle  = fmod(rand(), 2*PI);
+		if(nodeTry % RATE - 1 == 0)//try every rate-th time
+		{			//attempt to connect to ending node
+			newNode.self.x = endX;
+			newNode.self.y = endY;
+			newNode.angle  = endTh;
+		}
 
 		DubinsResult final = LSL(nodes[0], newNode);
 		DubinsResult next;
 		NodeLeaf chosen =nodes[0];
 
+		cout << "Checking:" << newNode.self << endl;
 
 		for(size_t i = 0; i < currNodeNum; i++)
 		{
@@ -467,14 +557,26 @@ int main()
 			};
 
 		}
-
+		nodeTry++;
+		if(next.dist == MAX){	//if the path is too long or intersects
+			cout << "Collided" << endl;
+			continue;
+		}
+		cout << "Good" << endl;
 		newNode.cost = final.dist + chosen.cost;
-		drawDubins(final, chosen, newNode, img);
+
+		drawDubins(final, chosen, newNode, img, false);
+
+		if(newNode.self.x == endX && newNode.self.y == endY && newNode.angle == endTh)
+		{
+			drawDubins(final, chosen, newNode, img, true);
+		}
 
 		// cout << "Length of path: " << len << endl;
 
 
 		//____________TEST___________________
+		
 /*
 		newN.self = Point( rand() % mapW , rand() % mapH);
 		newN.parent = &nodes[0];
