@@ -11,6 +11,12 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 
+/* TO RECOMPILE CODE 
+g++ -std=c++11 -o  Prime cRRT_Prime.cpp `pkg-config opencv --cflags --libs`
+
+*/
+
+
 
 using namespace std;
 using namespace cv;
@@ -18,6 +24,11 @@ using namespace cv;
 //mathematical constants
 const double PI = atan(1)*4;
 const double MAX = numeric_limits<double>::max();
+
+
+
+
+
 
 //width & height of map
 int mapW; 
@@ -30,9 +41,9 @@ double startTh;
 
 
 //final node
-int endX = 700;
-int endY = 500;
-double endTh = PI; 
+int endX;
+int endY;
+double endTh; 
 
 
 
@@ -44,11 +55,10 @@ double turnRad;
 
 
 
-
 //max number of nodes
 int nodeNum;
 //rate to check final point
-int RATE = 5;
+int RATE;
 
 
 //Drawing Constants
@@ -83,7 +93,7 @@ public:
 
 	}
 	//literally the equation
-	int equation(int x)
+	double equation(int x)
 	{
 		if(a.y-b.y == 0)	//no change in slope
 		{
@@ -91,9 +101,19 @@ public:
 		}
 		else
 		{
-			return ((a.y-b.y)/(a.x-b.x))*(x-a.x ) + a.y;
+			return (1.0*(a.y-b.y)/(a.x-b.x))*(x-a.x ) + a.y;
 		}
 	}
+
+	double getSlope() //returns slope
+	{
+		return (1.0*(a.y-b.y)/(a.x-b.x));
+	}
+	double getIntersect() // returns intersect
+	{		
+		return a.y - this->getSlope()*a.x;
+	}
+
 	Point getA() const
 	{
 		return a;
@@ -139,7 +159,16 @@ void readINI(string fileName)
 	File>>dump;
 	File>>startY;
 	File>>dump;
-	File>>startTh;
+	double mult;
+	File>>mult;
+	startTh = PI*mult;
+	File>>dump;
+	File>>endX;
+	File>>dump;
+	File>>endY;
+	File>>dump;
+	File>>mult;
+	endTh = mult*PI;
 	File>>dump;
 
 	//basic car restraints
@@ -169,11 +198,11 @@ void readINI(string fileName)
 	File>>dump;
 
 
-	//Epsilon is a fraction of average of w and h
+	//Rate is how often the algorithm tries to get to the goal point
 	File>>dump;
-	double EpsilonDenom;
-	File>>EpsilonDenom;
-	EPSILON =  ( (mapW + mapH)/2 ) /EpsilonDenom ;
+
+	File>>RATE;
+
 	File>>dump;
 
 
@@ -276,13 +305,102 @@ bool collidesLine(Line dude)
 		if( intersect(dude, (*obstacles)[i]))
 		{
 			collides = true;
-			break;;
+			break;
 		}
 	}
 	return collides;
 
 
 
+}
+
+//checks if an arc collides with a single line
+//uses quadratic formula
+bool intersectArc(Point cent, double rad, double ang1, double ang2, Line line)
+{
+
+
+	Point v = line.getA() - line.getB();
+	Point q = cent;
+	double r = rad;
+	Point p1 = line.getB();
+
+	double a = v.dot(v);
+	double b = 2.0 * v.dot(p1 - q);
+	double c = p1.dot(p1) + q.dot(q) - 2.0*p1.dot(q) - r*r;
+
+	double discriminant = 1.0*b*b - 4.0*a*c;
+
+	double x1, x2, y1, y2;	//for future refrence
+
+	if(discriminant < 0)	//no intersection
+	{
+		return false;
+	}
+	
+	else 
+	{
+
+		x1 = (-b + sqrt(discriminant))/(2*a);
+		//if x isnt on the line segment
+		if( (x1 < 0 || x1 > 1) 	)
+		{}
+		else{
+			y1 = line.equation(x1);
+
+			double angOfIntersect = atan2(y1-cent.y, x1-cent.x);
+
+			//intersect angle is bewteen the two angles
+			if( (angOfIntersect < ang2 		&& angOfIntersect > ang1 	 ) || 		//regular check
+				(angOfIntersect < ang2 		&& angOfIntersect > ang1-2*PI) ||		//in case the angles straddle 0/2PI and angOfIntersect is < pi
+				(angOfIntersect < ang2+2*PI	&& angOfIntersect > ang1 	 ) )		//same as above, but angOfIntersect > pi
+			{
+				return true;
+			}
+		
+		}
+		x2 = (-b + sqrt(discriminant))/(2*a);
+		//if x isnt on the line segment
+		if( (x2 < 0 || x2 > 1 ) )
+		{}
+		else{
+			y2 = line.equation(x2);
+
+			double angOfIntersect = atan2(y2-cent.y, x2-cent.x);
+
+			//intersect angle is bewteen the two angles
+			if( (angOfIntersect < ang2 		&& angOfIntersect > ang1 	 ) || 		//regular check
+				(angOfIntersect < ang2 		&& angOfIntersect > ang1-2*PI) ||		//in case the angles straddle 0/2PI and angOfIntersect is < pi
+				(angOfIntersect < ang2+2*PI	&& angOfIntersect > ang1 	 ) )		//same as above, but angOfIntersect > pi
+			{
+				return true;
+			}
+		
+		}
+
+	}
+	
+
+
+	return true;
+
+
+
+}
+//checks if an arc collides with any obstacles
+bool collidesArc(Point cent, double rad, double ang1, double ang2)
+{
+	bool collides = false;
+	for(size_t i = 0; i < numLines; i++)
+	{
+		if( intersectArc(cent, rad, ang1, ang2, (*obstacles)[i]))
+		{
+
+			collides = true;
+			break;
+		}
+	}
+	return collides;
 }
 
 DubinsResult RSR(NodeLeaf PoseOrigin, NodeLeaf PoseFinal)
@@ -335,11 +453,14 @@ DubinsResult RSR(NodeLeaf PoseOrigin, NodeLeaf PoseFinal)
 
 
 	Line straightLine(Point(OxLeft, OyLeft), Point(FxLeft, FyLeft));
-	if(collidesLine(straightLine))
-	{
-		result.dist = MAX;//just a max cause i'm too lazy to really write the max value thing in here
-	}
+	if(	collidesLine(straightLine) || 
+		collidesArc(Origin, turnRad, OriginLeave     - PI/2,  PoseOrigin.angle 	- PI/2	) ||
+		collidesArc(Final , turnRad, PoseFinal.angle - PI/2,  FinalLeave		- PI/2	)
 
+		 )
+	{
+		result.dist = MAX;
+	}
 	return result;
 	
 
@@ -348,8 +469,18 @@ DubinsResult RSR(NodeLeaf PoseOrigin, NodeLeaf PoseFinal)
 //draws an RSR dubin's curve
 void drawRSR(DubinsResult r, NodeLeaf PoseOrigin, NodeLeaf PoseFinal,  Mat img, bool final)
 {
-	ellipse(img, Point(r.Origin.x, r.Origin.y), Size(turnRad, turnRad), (PoseOrigin.angle-PI/2) *180/PI, (r.alph) *180/PI, 0, Scalar(255,0,0), lineThickness, 8 );
-	ellipse(img, Point(r.Final.x, r.Final.y), Size(turnRad, turnRad), (PoseFinal.angle-PI/2)*180/PI, 0, (r.gamm)*180/PI, Scalar(255,0,0), lineThickness, 8 );
+	if(!final){
+
+		ellipse(img, Point(r.Origin.x, r.Origin.y), Size(turnRad, turnRad), (PoseOrigin.angle-PI/2) *180/PI, (r.alph) *180/PI, 0, Scalar(255,0,0), lineThickness, 8 );
+		ellipse(img, Point(r.Final.x, r.Final.y), Size(turnRad, turnRad), (PoseFinal.angle-PI/2)*180/PI, 0, (r.gamm)*180/PI, Scalar(255,0,0), lineThickness, 8 );
+	
+	}
+	else{
+		ellipse(img, Point(r.Origin.x, r.Origin.y), Size(turnRad, turnRad), (PoseOrigin.angle-PI/2) *180/PI, (r.alph) *180/PI, 0, Scalar(255,0,255), lineThickness, 8 );
+		ellipse(img, Point(r.Final.x, r.Final.y), Size(turnRad, turnRad), (PoseFinal.angle-PI/2)*180/PI, 0, (r.gamm)*180/PI, Scalar(255,0,255), lineThickness, 8 );
+		
+	}
+
 
 	//circle(img, Point(Origin.x,Origin.y), turnRad , CV_RGB(0,0,255), lineThickness);
 	//circle(img, Point(Final.x,Final.y),turnRad , CV_RGB(0,0,255), lineThickness);
@@ -360,8 +491,15 @@ void drawRSR(DubinsResult r, NodeLeaf PoseOrigin, NodeLeaf PoseFinal,  Mat img, 
 	double FyLeft = -turnRad*sin(r.FinalLeave  + PI/2)  + r.Final.y ;
 
 	// cout << Point(OxLeft, OyLeft) << " to " << Point(FxLeft, FyLeft) << endl;
-	line(  img, Point(OxLeft, OyLeft), Point(FxLeft, FyLeft), CV_RGB(0,0,255), lineThickness );
+	if(!final)
+	{
+		line(  img, Point(OxLeft, OyLeft), Point(FxLeft, FyLeft), CV_RGB(0,0,255), lineThickness );
+	}
+	else
+	{
+		line(  img, Point(OxLeft, OyLeft), Point(FxLeft, FyLeft), CV_RGB(255,0,255), lineThickness );
 
+	}
 
 }
 
@@ -417,9 +555,12 @@ DubinsResult LSL(NodeLeaf PoseOrigin, NodeLeaf PoseFinal)
 
 
 	Line straightLine(Point(OxLeft, OyLeft), Point(FxLeft, FyLeft));
-	if(collidesLine(straightLine))
+	if(	collidesLine(straightLine) || 
+		collidesArc(Origin, turnRad, PoseOrigin.angle 	- PI/2, OriginLeave 	- PI/2 )  ||
+		collidesArc(Final , turnRad, FinalLeave  		- PI/2, PoseFinal.angle - PI/2 )
+		 )
 	{
-		result.dist = MAX;//just a max cause i'm too lazy to really write the max value thing in here
+		result.dist = MAX;
 	}
 
 	return result;
@@ -438,6 +579,8 @@ void drawLSL(DubinsResult r, NodeLeaf PoseOrigin, NodeLeaf PoseFinal,  Mat img, 
 	}
 	else
 	{
+		cout << "drawing final path" << endl;
+
 		ellipse(img, Point(r.Origin.x, r.Origin.y), Size(turnRad, turnRad), (PoseOrigin.angle+PI/2) *180/PI,0, (r.alph) *180/PI,  Scalar(255,0,255), lineThickness, 8 );
 		ellipse(img, Point(r.Final.x, r.Final.y), Size(turnRad, turnRad), (PoseFinal.angle+PI/2)*180/PI, (r.gamm)*180/PI,0, Scalar(255,0,255), lineThickness, 8 );
 
@@ -534,106 +677,149 @@ int main()
 		DubinsResult final = LSL(nodes[0], newNode);
 		DubinsResult next;
 		NodeLeaf chosen =nodes[0];
+		newNode.parent = &nodes[0];
 
-		cout << "Checking:" << newNode.self << endl;
+		 // cout << "Checking:" << newNode.self << endl;
 
 		for(size_t i = 0; i < currNodeNum; i++)
 		{
 
-			next = LSL(nodes[i], newNode);
+			next = LSL(nodes[i], newNode);//checks an rsr
 
 			if(next.dist + nodes[i].cost < final.dist + chosen.cost)
 			{
 				final = next;
 				chosen = nodes[i];
+				newNode.parent = &nodes[i];
 			};
 
-			next = RSR(nodes[i], newNode);
+			next = RSR(nodes[i], newNode);//checks an lsl
 
 			if(next.dist + nodes[i].cost < final.dist + chosen.cost)
 			{
 				final = next;
 				chosen = nodes[i];
+				newNode.parent = &nodes[i];
 			};
 
 		}
+
+		
 		nodeTry++;
 		if(next.dist == MAX){	//if the path is too long or intersects
-			cout << "Collided" << endl;
+			 // cout << "Collided" << endl;
 			continue;
 		}
-		cout << "Good" << endl;
-		newNode.cost = final.dist + chosen.cost;
+		// cout << "Good" << endl;
+		// newNode.cost = final.dist + chosen.cost;
+		// for(size_t i = 0; i < currNodeNum; i++)
+		// {
 
+		// 	next = LSL(newNode, nodes[i]);//checks an rsr
+
+		// 	if(next.dist + newNode.cost < )
+		// 	{
+		// 		final = next;
+		// 		chosen = nodes[i];
+		// 	};
+
+		// 	next = RSR(nodes[i], newNode);//checks an lsl
+
+		// 	if(next.dist + nodes[i].cost < final.dist + chosen.cost)
+		// 	{
+		// 		final = next;
+		// 		chosen = nodes[i];
+		// 	};
+
+		// }
 		drawDubins(final, chosen, newNode, img, false);
 
-		if(newNode.self.x == endX && newNode.self.y == endY && newNode.angle == endTh)
-		{
-			drawDubins(final, chosen, newNode, img, true);
-		}
-
-		// cout << "Length of path: " << len << endl;
-
-
-		//____________TEST___________________
 		
-/*
-		newN.self = Point( rand() % mapW , rand() % mapH);
-		newN.parent = &nodes[0];
-
-		//distance to the initial node
-		double minDist = sqrt(   (newN.self.x-newN.parent->self.x)*(newN.self.x-newN.parent->self.x) + (newN.self.y-newN.parent->self.y)*(newN.self.y-newN.parent->self.y)   );
-
-
-		//iterates through the other nodes to see if any are closer
 		
-		for(size_t j = 0; j < currNodeNum; j++)
-		{
-			NodeLeaf n = nodes[j];
-			NodeLeaf* point = &nodes[j];
-			
-			//distance to next node
-			double dist = sqrt(   (newN.self.x-n.self.x)*(newN.self.x-n.self.x) + (newN.self.y-n.self.y)*(newN.self.y-n.self.y)   );
-			if(dist < minDist)
-			{
-				minDist = dist;
-				newN.parent = point;	//new parent is closest node
-			}
-		}
-		// cout << "Node:	" << newN.self << endl;
-		// cout << "	Node Parent:	" << newN.parent->self << endl;
-		// cout << "node dist:	" << minDist << endl;
-		
-
-
-
-		//if the node is too far away, throw it out
-		if(minDist > EPSILON)
-		{
-			// cout << "threw out" << endl;
-			continue;
-			//atan2(newN.self.y-newN.parent->y )
-		}*/
-
-		// cout << "Created node: " << newN.self; 
-		// cout << "	with parent: " << newN.parent->self << endl;
-		
-		//add new node into the array
 		nodes[currNodeNum] = newNode;
+		
 		currNodeNum++;
 
 	}
 
-	// cout << endl << " All Nodes: " << endl;
-	// for(size_t i = 0; i < currNodeNum; i++)
-	// {
-	// 	cout << "	" << nodes[i].self << endl;
-	// }
+	NodeLeaf selectedFinal;
+	double finalCost = MAX;
+	//iterate through list 
+	for(size_t i = 0; i < currNodeNum; i++)
+	{
+		if(nodes[i].self.x == endX && nodes[i].self.y == endY && nodes[i].angle == endTh)
+		{
+			if(nodes[i].cost < finalCost )
+			{
+				selectedFinal = nodes[i];
+				finalCost = nodes[i].cost;
+			}
+		}
+	}
+	if(finalCost == MAX)
+	{
+		cout << "Result not found" << endl;
+		draw(nodes, img);
+		circle(img, start.self, nodeRad+1, CV_RGB(0,0,0), nodeRad);
+		arrowedLine(   img, start.self,    Point( start.self.x + lineLen*cos(start.angle) , start.self.y + lineLen*sin(start.angle) )   , CV_RGB(0,0,0), lineThickness+1, 8 );
+
+		circle(img, start.self, nodeRad, CV_RGB(255,0,0), nodeRad);
+		arrowedLine(   img, start.self,    Point( start.self.x + lineLen*cos(start.angle) , start.self.y + lineLen*sin(start.angle) )   , CV_RGB(255,0,0), lineThickness, 8 );
+
+	}
+	else{
+		draw(nodes, img);
+
+		circle(img, start.self, nodeRad+1, CV_RGB(0,0,0), nodeRad);
+		arrowedLine(   img, start.self,    Point( start.self.x + lineLen*cos(start.angle) , start.self.y + lineLen*sin(start.angle) )   , CV_RGB(0,0,0), lineThickness+1, 8 );
+
+		circle(img, start.self, nodeRad, CV_RGB(0,255,0), nodeRad);
+		arrowedLine(   img, start.self,    Point( start.self.x + lineLen*cos(start.angle) , start.self.y + lineLen*sin(start.angle) )   , CV_RGB(0,255,0), lineThickness, 8 );
+	
+
+
+		circle(img, selectedFinal.self, nodeRad+1, CV_RGB(0,0,0), nodeRad);
+		arrowedLine(   img, selectedFinal.self,    Point( selectedFinal.self.x + lineLen*cos(selectedFinal.angle) , selectedFinal.self.y + lineLen*sin(selectedFinal.angle) )   , CV_RGB(0,0,0), lineThickness+1, 8 );
+
+		circle(img, selectedFinal.self, nodeRad, CV_RGB(0,255,0), nodeRad);
+		arrowedLine(   img, selectedFinal.self,    Point( selectedFinal.self.x + lineLen*cos(selectedFinal.angle) , selectedFinal.self.y + lineLen*sin(selectedFinal.angle) )   , CV_RGB(0,255,0), lineThickness, 8 );
+		
+
+
+		NodeLeaf current = selectedFinal;
+		DubinsResult prev;
+		DubinsResult prevR;
+		DubinsResult prevL;
+		// cout << "parent: " << (*(current.parent)).self << endl;
+
+		//while parent is not the start
+
+		while(  (*(current.parent)).self != current.self)
+		{
+			cout << "drawing final: " << current.self << ", " << (*(current.parent)).self << endl;
+			prevL = LSL(*(current.parent), current);//checks an rsr
+			prevR = RSR(*(current.parent), current);//checks an lsl
+
+			if(prevL.dist < prevR.dist)
+			{
+				prev = prevL;
+			}
+			else
+			{
+				prev = prevR;
+			}
+			drawDubins(prev, *(current.parent), current, img, true);
+			cout << "parent: " << (*(current.parent)).self << endl;
+
+			current = *(current.parent);
+
+		}
+	}	
+
 
 
 		//final image display
-	draw(nodes, img);
-	circle(img, start.self, nodeRad, CV_RGB(0,255,0), nodeRad);
+	
 	imshow("CaR-RT", img);
 	waitKey(0);
 
