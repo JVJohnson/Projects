@@ -1,19 +1,8 @@
-'''
-#########   ######   ###    ######
-   ##       #    #   #  #   #    #
-   ##       #    #   #  #   #    #
-   ##       #    #   #  #   #    #
-   ##       #    #   #  #   #    #
-   ##       ######   ###    ######
-
-#fix this to to work
-#pls
-'''
 
 #Imports
 import numpy
 import cv2
-import Queue
+import queue
 import math
 #import matplotlib.pyplot as plt
 import time
@@ -22,7 +11,7 @@ import csv
 sqrt2 = math.sqrt(2)
 
 
-def findPath(m, (origin_x, origin_y), (goal_x, goal_y), freespace = 0):
+def findPath(m, start, goal, freespace = 0):
     '''
     Finds the path using an A* algorithm
     
@@ -36,10 +25,10 @@ def findPath(m, (origin_x, origin_y), (goal_x, goal_y), freespace = 0):
     '''
 
     
-    start = (origin_x, origin_y)            #sets origin, goal points
-    goal = (goal_x, goal_y)
+    #start = (origin_x, origin_y)            #sets origin, goal points
+    #goal = (goal_x, goal_y)
 
-    frontier = Queue.PriorityQueue()        #uses prioirty queue to prioritize points closer to the goal
+    frontier = queue.PriorityQueue()        #uses prioirty queue to prioritize points closer to the goal
     frontier.put((0, start))
 
     parents = {}                            #list of parents for traceback of goalpoint
@@ -56,7 +45,13 @@ def findPath(m, (origin_x, origin_y), (goal_x, goal_y), freespace = 0):
             print("\n Path found ! ")
             return current, parents, costs[current]
 
-        if m[current[0]][current[1]] != freespace:
+
+        if  current[0] >= len(m) or current[0] < 0 or current[1] >= len(m[0]) or current[1] < 0:
+            #print("out of bounds")
+            continue        #if the index is out of bounds even though maps should be completely enclosed...
+
+
+        if numpy.all(m[current[0]][current[1]] != freespace):
             continue
         
         #print(current)
@@ -80,8 +75,9 @@ def findPath(m, (origin_x, origin_y), (goal_x, goal_y), freespace = 0):
                 parents[next] = current
                
 
+    print("Failed")
 
-    return parents, costs, -1
+    return start, parents, -1
 
     
 
@@ -146,8 +142,9 @@ def dist(start, end):
 
 def aStar(start, goal, occupancyGrid, free = 255):
     win, parents, cost = findPath(occupancyGrid, start, goal, freespace = free)
+    #print(parents)
     if cost == -1:
-        return (start)
+        return [(0,0), start]
     else:
         path = []
         trace = win
@@ -155,3 +152,21 @@ def aStar(start, goal, occupancyGrid, free = 255):
             path.append(trace)
             trace = parents[trace]
         return path
+
+
+if __name__ == "__main__":
+    map = cv2.imread("Maze.png", 1)
+    newMap = map
+    cv2.namedWindow("AStar", cv2.WINDOW_NORMAL)
+
+    #in y,x format
+    begin   = (1, 155)
+    end     = (321, 170)
+    path = aStar(begin, end, map)
+
+
+    for point in path:
+        print(point)
+        newMap[point[0]][point[1]] = (255, 0, 255)
+    cv2.imshow("AStar", newMap)
+    cv2.waitKey(0)
