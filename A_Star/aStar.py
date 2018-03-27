@@ -123,7 +123,7 @@ def heur(end, check):
     return result
 
 
-def dist(start, end):
+def dist(start, end): 
     '''
     returns the distance to a neighbor
     
@@ -159,14 +159,16 @@ if __name__ == "__main__":
     newMap = map
     cv2.namedWindow("AStar", cv2.WINDOW_NORMAL)
 
-    #in y,x format
-    begin   = (1, 155)
-    end     = (321, 170)
+    #in y,x format	#maze.png 					#BigMaze.png 			#notMaze.jpg
+    begin   = (   1,    155)					#(3,3)					#(1, 1)
+    end     = (319, 168)						#(1785, 1799)			#(423, 1068)
+    start = time.time()
     path = aStar(begin, end, map)
-
+    length = time.time() - start
 
     for point in path:
         print(point)
         newMap[point[0]][point[1]] = (255, 0, 255)
     cv2.imshow("AStar", newMap)
     cv2.waitKey(0)
+    print("Took this much time: {}".format(length))

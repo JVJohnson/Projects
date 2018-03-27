@@ -579,7 +579,7 @@ void drawLSL(DubinsResult r, NodeLeaf PoseOrigin, NodeLeaf PoseFinal,  Mat img, 
 	}
 	else
 	{
-		cout << "drawing final path" << endl;
+		//cout << "drawing final path" << endl;
 
 		ellipse(img, Point(r.Origin.x, r.Origin.y), Size(turnRad, turnRad), (PoseOrigin.angle+PI/2) *180/PI,0, (r.alph) *180/PI,  Scalar(255,0,255), lineThickness, 8 );
 		ellipse(img, Point(r.Final.x, r.Final.y), Size(turnRad, turnRad), (PoseFinal.angle+PI/2)*180/PI, (r.gamm)*180/PI,0, Scalar(255,0,255), lineThickness, 8 );
@@ -758,7 +758,7 @@ int main()
 	}
 	if(finalCost == MAX)
 	{
-		cout << "Result not found" << endl;
+		//cout << "Result not found" << endl;
 		draw(nodes, img);
 		circle(img, start.self, nodeRad+1, CV_RGB(0,0,0), nodeRad);
 		arrowedLine(   img, start.self,    Point( start.self.x + lineLen*cos(start.angle) , start.self.y + lineLen*sin(start.angle) )   , CV_RGB(0,0,0), lineThickness+1, 8 );
@@ -796,7 +796,7 @@ int main()
 
 		while(  (*(current.parent)).self != current.self)
 		{
-			cout << "drawing final: " << current.self << ", " << (*(current.parent)).self << endl;
+			//cout << "drawing final: " << current.self << ", " << (*(current.parent)).self << endl;
 			prevL = LSL(*(current.parent), current);//checks an rsr
 			prevR = RSR(*(current.parent), current);//checks an lsl
 
@@ -809,7 +809,7 @@ int main()
 				prev = prevR;
 			}
 			drawDubins(prev, *(current.parent), current, img, true);
-			cout << "parent: " << (*(current.parent)).self << endl;
+			//cout << "parent: " << (*(current.parent)).self << endl;
 
 			current = *(current.parent);
 
