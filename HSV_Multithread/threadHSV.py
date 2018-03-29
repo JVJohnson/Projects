@@ -16,6 +16,8 @@ class HSV_Finder(Process):
         self.frame_queue    = frame_queue
         self.output_queue   = output_queue
         self.running        = True
+        self.cX             = 0
+        self.cY             = 0
 
     def get_frame(self):
         if not self.frame_queue.empty():
@@ -39,15 +41,16 @@ class HSV_Finder(Process):
             Contours = sorted(Contours, key=cv2.contourArea)
             cont = Contours[0]
             M = cv2.moments(cont)                 #creates moments of contour
-            cX = int(M["m10"]/M["m00"])                 #uses moments for the circle
-            cY = int(M["m01"]/M["m00"])
+            if M["m00"] !=0:
+                self.cX = int(M["m10"]/M["m00"])                 #uses moments for the circle
+                self.cY = int(M["m01"]/M["m00"])
+            
 
             cv2.drawContours(im, [cont], -1, (255,0,255), 2)#draws the contours
-            cv2.circle(im, (cX, cY), 12 ,(50, 50, 255), -1) #draws the circle
-            if self.output_queue.full():
-                self.output_queue.get_nowait()
-            else:
-                self.output_queue.put(  (im, (cX, cY) )  )
+            cv2.circle(im, (self.cX, self.cY), 12 ,(50, 50, 255), -1) #draws the circle
+            if self.output_queue.full() and not self.output_queue.empty():
+                self.output_queue.get()
+            self.output_queue.put(  (im, (self.cX, self.cY) )  )
 
 
     def run(self):
@@ -63,10 +66,9 @@ if __name__ == "__main__":
     h,s,v, h1, s1, v1 = (100,100,100, 0, 0, 0)
 
     def put_frame(frame):
-        if Input_Queue.full(): 
-            Input_Queue.get_nowait()
-        else:
-            Input_Queue.put(frame)
+        if Input_Queue.full() and not Input_Queue.empty(): 
+            Input_Queue.get()
+        Input_Queue.put(frame)
 
     def create_frame(cap):
         global h,s,v,h1,s1,v1
@@ -86,7 +88,7 @@ if __name__ == "__main__":
     def nothing(x): 
         pass
         
-    cap = cv2.imread("Python.png", 1)
+    cap = cv2.imread("1.png", 1)
 
     threadn = cv2.getNumberOfCPUs()
 
