@@ -27,9 +27,9 @@ class HSV_Finder(Process):
         self.running = False
 
     def find_hsv(self, frame):
-        im, upperHSV, lowerHSV = frame
+        im, lowerHSV, upperHSV = frame
         hsv = cv2.cvtColor(im,cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv,lower_blue, upper_blue)
+        mask = cv2.inRange(hsv,lowerHSV, upperHSV)
 
         mask = cv2.GaussianBlur(mask, (51, 51), 0)
         mask = cv2.erode(mask, (5,5), iterations=20)
@@ -44,9 +44,10 @@ class HSV_Finder(Process):
 
             cv2.drawContours(im, [cont], -1, (255,0,255), 2)#draws the contours
             cv2.circle(im, (cX, cY), 12 ,(50, 50, 255), -1) #draws the circle
-        if self.output_queue.full():
-            self.output_queue.get_nowait()
-        self.output_queue.put(  (im, (cX, cY) )  )
+            if self.output_queue.full():
+                self.output_queue.get_nowait()
+            else:
+                self.output_queue.put(  (im, (cX, cY) )  )
 
 
     def run(self):
@@ -59,13 +60,16 @@ class HSV_Finder(Process):
 if __name__ == "__main__":
     frame_sum = 0
     init_time = time.time()
+    h,s,v, h1, s1, v1 = (100,100,100, 0, 0, 0)
 
     def put_frame(frame):
         if Input_Queue.full(): 
             Input_Queue.get_nowait()
-        Input_Queue.put(frame)
+        else:
+            Input_Queue.put(frame)
 
     def create_frame(cap):
+        global h,s,v,h1,s1,v1
         s = cv2.getTrackbarPos('s','Threaded Video')
         h = cv2.getTrackbarPos('h','Threaded Video')
         v = cv2.getTrackbarPos('v','Threaded Video')
@@ -75,7 +79,7 @@ if __name__ == "__main__":
     
         lower_blue = np.array([h,s,v])
         upper_blue = np.array([h1,s1,v1])       
-        frame = (lower_blue, upper_blue, cap.copy())
+        frame = (cap.copy(), lower_blue, upper_blue)
 
         put_frame(frame)
 
@@ -108,21 +112,28 @@ if __name__ == "__main__":
     cv2.createTrackbar('h', 'Threaded Video',0,179,nothing)
     cv2.createTrackbar('s', 'Threaded Video',0,255,nothing)
     cv2.createTrackbar('v', 'Threaded Video',0,255,nothing)
-    while True: 
+    while threaded_mode: 
 
         create_frame(cap)
         
         
         if not Output_Queue.empty():
             result = Output_Queue.get()
-            cv2.imshow('Threaded Video', result)
+            im, c = result
+            cv2.imshow('Threaded Video', im)
             ch = cv2.waitKey(5)
-
+            #print("other")
+        else: 
+            #print("iter")
+            cv2.imshow('Threaded Video', cap.copy())
+            ch = cv2.waitKey(5)
         if ch == ord(' '):
             threaded_mode = not threaded_mode
         if ch == 27:
             break
     cv2.destroyAllWindows()
 
+    print("Upper H: {:>3}  S: {:>3}   V: {:>3}".format(h1,s1,v1))
+    print("Lower H: {:>3}  S: {:>3}   V: {:>3}".format(h,s,v))
 
 
