@@ -34,9 +34,25 @@ NODE_RADIUS =  LINE_THICKNESS + 0
 
 EPSILON= int( (MAP_WIDTH + MAP_HEIGHT)/2     * .13)
 
+def getColor(cost, maxCost):
+    if maxCost ==0:
+        return(0,0,0)
+    section = cost/maxCost*4
+    #print(section)
+    diff    = int(   ( cost%(maxCost/4) )/maxCost*4*255   )
+    #print(diff)
+    if section< 1:
+        return(255, diff, 0)
+    elif section < 2:
+        return(255-diff, 255, 0)
+    elif section < 3:
+        return(0, 255, diff)
+    else:
+        return (0, 255-diff, 255)        
 
 
-def Draw(im, k, obs):
+
+def Draw(im, k, obs, costs):
     '''
     Draws the map
 
@@ -46,12 +62,12 @@ def Draw(im, k, obs):
 
     
     '''
-    
+    maxCost = max(costs.values())
 
     for node in k:  #draws all the nodes (not just new ones in case there is an update feature later)
-        
-        cv2.circle(im, node, NODE_RADIUS, COLOR_NODE)
-        cv2.line(im, node, k[node], COLOR_EDGE, thickness=LINE_THICKNESS)
+        col = getColor(costs[node], maxCost)
+        cv2.circle(im, node, NODE_RADIUS, col)
+        cv2.line(im, node, k[node], col, thickness=LINE_THICKNESS)
     '''for obstacle in obs:
         cv2.rectangle(im, obstacle[0], obstacle[1], COLOR_OBS, thickness = EPSILON) 
     '''
@@ -149,7 +165,7 @@ def main():
 
     
 
-    Draw(Map, k, Obs)
+    Draw(Map, k, Obs, costs)
 
                         #find set number of nodes
     while len(k) < MAX_NODES:
@@ -196,7 +212,7 @@ def main():
                 costs[GOAL] = costs[newNode] + distance(newNode, GOAL)
             
         #update image
-        Draw(Map, k, Obs)
+        Draw(Map, k, Obs, costs)
 
         
     

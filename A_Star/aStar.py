@@ -177,7 +177,7 @@ def getColor(cost, maxCost):
 
 if __name__ == "__main__":
 
-    maze = 0
+    maze = 1
     profile = False
 
     if maze ==0:
