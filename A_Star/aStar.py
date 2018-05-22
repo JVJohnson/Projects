@@ -7,7 +7,7 @@ import math
 #import matplotlib.pyplot as plt
 import time
 import csv
-
+import cProfile, pstats, io
 sqrt2 = math.sqrt(2)
 
 
@@ -29,21 +29,24 @@ def findPath(m, start, goal, freespace = 0):
     #goal = (goal_x, goal_y)
 
     frontier = queue.PriorityQueue()        #uses prioirty queue to prioritize points closer to the goal
-    frontier.put((0, start))
+    for point in start:
+        frontier.put((0, point))
 
     parents = {}                            #list of parents for traceback of goalpoint
-    parents[start] = None
+    for point in start:
+        parents[point] = None
 
     costs = {}                              #list of costs to keep track of previous locations
-    costs[start] = 0
+    for point in start:
+        costs[point] = 0
     
-    
+    current = (0,0)
     while not frontier.empty():             #loop through frontier
         current = frontier.get()[1]         #acquire a block
 
-        if current == goal :                #check if its the goal
-            print("\n Path found ! ")
-            return current, parents, costs[current]
+        #if current == goal :                #check if its the goal
+        #    print("\n Path found ! ")
+        #    return current, parents, costs
 
 
         if  current[0] >= len(m) or current[0] < 0 or current[1] >= len(m[0]) or current[1] < 0:
@@ -75,9 +78,9 @@ def findPath(m, start, goal, freespace = 0):
                 parents[next] = current
                
 
-    print("Failed")
+    #print("Failed")
 
-    return start, parents, -1
+    return goal, parents, costs
 
     
 
@@ -143,32 +146,116 @@ def dist(start, end):
 def aStar(start, goal, occupancyGrid, free = 255):
     win, parents, cost = findPath(occupancyGrid, start, goal, freespace = free)
     #print(parents)
-    if cost == -1:
-        return [(0,0), start]
+    if not win in cost.keys():
+        l = [(0,0)]
+        l.extend(start)
+        return l, parents, cost, max(cost.values())
     else:
         path = []
         trace = win
         while trace != None:
             path.append(trace)
             trace = parents[trace]
-        return path
+        return path, parents, cost, max(cost.values())
+
+
+def getColor(cost, maxCost):
+    section = cost/maxCost*4
+    #print(section)
+    diff    = int(   ( cost%(maxCost/4) )/maxCost*4*255   )
+    #print(diff)
+    if section< 1:
+        return(255, diff, 0)
+    elif section < 2:
+        return(255-diff, 255, 0)
+    elif section < 3:
+        return(0, 255, diff)
+    else:
+        return (0, 255-diff, 255)        
+
 
 
 if __name__ == "__main__":
-    map = cv2.imread("Maze.png", 1)
-    newMap = map
-    cv2.namedWindow("AStar", cv2.WINDOW_NORMAL)
 
-    #in y,x format	#maze.png 					#BigMaze.png 			#notMaze.jpg
-    begin   = (   1,    155)					#(3,3)					#(1, 1)
-    end     = (319, 168)						#(1785, 1799)			#(423, 1068)
-    start = time.time()
-    path = aStar(begin, end, map)
-    length = time.time() - start
+    maze = 0
+    profile = False
+
+    if maze ==0:
+        freespace = 255
+        map = cv2.imread("Maze.png", 1)
+        begin   = [(1,155)]                 
+        end     = (319, 168)
+
+    elif maze==1:
+        freespace = 255
+        map = cv2.imread("BigMaze.png", 1)
+        begin   = [(3,3)]                
+        end     = (1785, 1799)
+
+    elif maze==2:
+        freespace = 255
+        map = cv2.imread("NotMaze.jpg", 1)
+        begin   = [(1,1)]                
+        end     = (423, 1068)
+    elif maze==3:
+        freespace = 0
+        map = cv2.imread("Maze.png", 1)
+        begin   = [(1,1), (1, 321)]                 
+        end     = (322, 322)
+
+    elif maze==4:
+        freespace = 0
+        map = cv2.imread("BigMaze.png", 1)
+        begin   = [(1,10), (1,1)]                 
+        end     = (1801, 1801)
+    else:
+        print("unknown Maze")
+        
+
+    
+    
+    newMap = map
+    
+    	
+    
+    if profile:
+        pr = cProfile.Profile()
+        pr.enable()
+    else:
+        start = time.time()
+
+    path, parents, costs, maxCost = aStar(begin, end, map, free = freespace)
+
+    if profile:
+        pr.disable()
+        s = io.StringIO()
+        sortby = 'cumulative'
+        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+        ps.print_stats()
+        print(s.getvalue())
+    else:
+        length = time.time() - start
+        print("Took this much time: {}".format(length))
+
+
+    for point in parents.keys():
+        if  point[0] >= len(map) or point[0] < 0 or point[1] >= len(map[0]) or point[1] < 0:
+            #print("out of bounds")
+            continue  
+        if numpy.all(map[point[0]][point[1]] == freespace):
+            #print (getColor(costs[(point[0],point[1])], maxCost))
+            newMap[point[0]][point[1]] = getColor(costs[(point[0],point[1])], maxCost)
+    
 
     for point in path:
-        print(point)
+        if  point[0] >= len(map) or point[0] < 0 or point[1] >= len(map[0]) or point[1] < 0:
+            #print("out of bounds")
+            continue
+        #print(point)
         newMap[point[0]][point[1]] = (255, 0, 255)
+
+    cv2.namedWindow("AStar", cv2.WINDOW_NORMAL)
+
     cv2.imshow("AStar", newMap)
     cv2.waitKey(0)
-    print("Took this much time: {}".format(length))
+    

@@ -81,14 +81,14 @@ if __name__ == "__main__":
     
         lower_blue = np.array([h,s,v])
         upper_blue = np.array([h1,s1,v1])       
-        frame = (cap.copy(), lower_blue, upper_blue)
+        frame = (cap, lower_blue, upper_blue)
 
         put_frame(frame)
 
     def nothing(x): 
         pass
         
-    cap = cv2.imread("1.png", 1)
+    cap = cv2.imread("Python.png", 1)
 
     threadn = cv2.getNumberOfCPUs()
 
