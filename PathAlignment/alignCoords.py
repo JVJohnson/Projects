@@ -113,8 +113,8 @@ if __name__ == "__main__":
 
 
 
-    fname = "gt-husky-indoor-cutoff-good.csv"
-    fname2 = "msckf_poses_cutoff_good.csv"
+    fname = "gt-husky-outdoor-cutoff.csv"
+    fname2 = "outdoor_husky_estimate_cutoff_good.csv"
     pts = transformPoints(readCsv(fname))
 
 
