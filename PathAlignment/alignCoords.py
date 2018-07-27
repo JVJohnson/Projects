@@ -3,7 +3,7 @@ import csv
 import numpy
 import math
 from scipy.optimize import minimize
-
+from scipy.spatial.distance import cdist
 resScalar = 10
 resThick = resScalar/4
 height = 200 * resScalar
@@ -70,18 +70,19 @@ def plotPoints(points, image, color=(0,255,0)):
 
 def RMSE(mat1, mat2):
     '''calculates rmse between two lists
-    :param mat1: first list
+    :param mat1: first list, shortest
     :param mat2: second list
 
-    :return float: rmse betweenthe two matricies, -1 if different lengths
+    :return float: rmse betweenthe two matricies
     '''
-    rmse = 0
-    try:
-        rmse= numpy.sqrt(     (   ( numpy.array(mat1) - numpy.array(mat2) ) **2   ).mean()     )/resScalar
-    except ValueError as e:
-        rmse= -1
-    finally:
-        return rmse
+    m1, m2 = numpy.array(mat1), numpy.array(mat2)
+
+    rmse = -1
+    if m1.shape == m2.shape:        #same shape, speed up drastically
+        rmse= numpy.sqrt(   ( (m1-m2                   )**2 ).mean()   ) /resScalar
+    else:                           #different shape, slower
+        rmse= numpy.sqrt(   ( (cdist(m2,m1).min(axis=0))**2 ).mean()   ) /resScalar
+    return rmse
 
 
 
@@ -113,8 +114,8 @@ if __name__ == "__main__":
 
 
 
-    fname = "gt-husky-outdoor-cutoff.csv"
-    fname2 = "outdoor_husky_estimate_cutoff_good.csv"
+    fname = "gt-husky-indoor-cutoff.csv"
+    fname2 = "msckf_poses_cutoff.csv"
     pts = transformPoints(readCsv(fname))
 
 
