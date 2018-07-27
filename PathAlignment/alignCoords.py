@@ -149,6 +149,9 @@ if __name__ == "__main__":
         if k == 27:
             run= False
         if k == 111:
+            cv2.putText(im, "Optimizing..."        , (5* resScalar, 20* resScalar), cv2.FONT_HERSHEY_PLAIN, 0.2* resScalar, (0,0,0), resThick)
+            cv2.imshow("points", im)
+            k = cv2.waitKey(10) & 0xFF
             #print("Optimizing...")
             x0 = [centerSlam[0], centerSlam[1], rotateSlam, scaleSlam] #initial guess from current position
             optResult = minimize(optRMSE, x0, args=(flipSlam, pts, pts2), method="Nelder-Mead")
