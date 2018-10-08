@@ -75,8 +75,8 @@ if __name__ == "__main__":
     im[:,:] = (255,255,255)
 
 
-    fname = "gt-husky-indoor.csv"
-    fname2 = "msckf_poses_good.csv"
+    fname = "gt-husky-indoor-cutoff.csv"
+    fname2 = "msckf_poses.csv"
     pts = transformPoints(readCsv(fname))
     plotPoints(pts, im)
     
