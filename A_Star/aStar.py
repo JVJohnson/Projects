@@ -72,6 +72,7 @@ def findPath(m, start, goal, freespace = 0):
                 
                 costs[next] = this_cost
                 
+                #p = heur(next, goal)
                 p = this_cost + heur(next, goal)
                 
                 frontier.put((p, next))
@@ -177,8 +178,8 @@ def getColor(cost, maxCost):
 
 if __name__ == "__main__":
 
-    maze = 1
-    profile = False
+    maze = 0
+    profile = True
 
     if maze ==0:
         freespace = 255
