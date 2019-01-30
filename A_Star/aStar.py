@@ -41,7 +41,7 @@ def findPath(m, start, goal, freespace = 0):
         costs[point] = 0
     
     current = (0,0)
-    while not frontier.empty():             #loop through frontier
+    while not frontier.empty() and not current == goal:             #loop through frontier
         current = frontier.get()[1]         #acquire a block
 
         #if current == goal :                #check if its the goal
