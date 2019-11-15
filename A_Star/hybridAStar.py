@@ -49,3 +49,21 @@ Function: Find Neighbors
 
 
 '''	
+class HybridAStar:
+	def __init__(self, terrain, start, end):
+		self.terrain = terrain
+		self.start = start
+		self.end = end
+		self.speed = 100
+		self.radius = 10
+		self.definition = 10
+		self.num_neighbors = 7
+
+
+if __name__ == "__main__":
+	dim = 1000
+	terrain = numpy.full((dim, dim, 3), 255)
+	start = (500, 800, 0)
+	end = (500, 200, numpy.pi/2)
+
+	HybridAStar(terrain, start, end)
